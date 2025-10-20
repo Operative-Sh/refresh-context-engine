@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+packages/*/build/
+*.tsbuildinfo
+*.js.map
+*.d.ts.map
+
+# RCE runtime files
+.rce/
+*.sock
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# NPM
+.npmrc
+*.tgz
+
+# Test coverage
+coverage/
+.nyc_output/
+

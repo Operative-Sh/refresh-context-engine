@@ -1,0 +1,21 @@
+{
+  "name": "@refresh-dev/rce-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "rce-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"import{chmodSync}from'fs';chmodSync('build/index.js',0o755)\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0"
+  }
+}
+
+

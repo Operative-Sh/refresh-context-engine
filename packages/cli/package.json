@@ -1,0 +1,30 @@
+{
+  "name": "@refresh-dev/rce",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "rce": "./bin/rce.mjs"
+  },
+  "files": [
+    "build",
+    "bin",
+    "vendor",
+    "public"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"import{chmodSync}from'fs';chmodSync('bin/rce.mjs',0o755)\"",
+    "postinstall": "npx --yes playwright install chromium --with-deps || true"
+  },
+  "dependencies": {
+    "playwright": "^1.47.0",
+    "diff-dom": "^5.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.5.0"
+  }
+}
+
+

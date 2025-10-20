@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>RCE Live View</title>
+  <style>
+    body { margin: 0; font-family: system-ui; display: flex; flex-direction: column; height: 100vh; background: #1a1a1a; color: #e0e0e0; }
+    #toolbar { padding: 1rem; border-bottom: 1px solid #333; background: #2a2a2a; }
+    #toolbar h2 { margin: 0 0 0.5rem 0; color: #fff; }
+    #status { color: #4CAF50; font-size: 14px; }
+    #main { display: flex; flex: 1; overflow: hidden; }
+    #left { flex: 2; display: flex; flex-direction: column; border-right: 1px solid #333; }
+    #screencast-container { flex: 1; background: #000; position: relative; overflow: auto; display: flex; align-items: center; justify-content: center; }
+    #screencast { max-width: 100%; max-height: 100%; border: 1px solid #333; }
+    #rrweb-container { flex: 1; border-top: 1px solid #333; padding: 1rem; overflow: auto; background: #222; }
+    #rrweb-container h3 { margin: 0 0 1rem 0; color: #fff; font-size: 16px; }
+    #frames-list { font-family: monospace; font-size: 12px; }
+    .frame-item { padding: 4px 8px; margin: 2px 0; background: #2a2a2a; border-radius: 3px; cursor: pointer; }
+    .frame-item:hover { background: #3a3a3a; }
+    #right { flex: 1; display: flex; flex-direction: column; background: #1a1a1a; }
+    #logs { flex: 1; overflow: auto; padding: 1rem; font-family: monospace; font-size: 12px; }
+    #logs h3 { margin: 0 0 1rem 0; color: #fff; font-size: 16px; }
+    .log-entry { padding: 4px 8px; margin: 2px 0; border-left: 3px solid #666; background: #222; border-radius: 2px; }
+    .log-console { border-left-color: #2196F3; }
+    .log-network { border-left-color: #4CAF50; }
+    .log-error { border-left-color: #f44336; background: #2a1a1a; }
+    .log-time { color: #888; font-size: 10px; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <h2>RCE Live View</h2>
+    <span id="status">Connecting...</span>
+  </div>
+  <div id="main">
+    <div id="left">
+      <div id="screencast-container">
+        <canvas id="screencast"></canvas>
+      </div>
+      <div id="rrweb-container">
+        <h3>rrweb Timeline</h3>
+        <div id="frames-list">Loading frames...</div>
+      </div>
+    </div>
+    <div id="right">
+      <div id="logs">
+        <h3>Console & Network Events</h3>
+        <div id="log-entries">Loading logs...</div>
+      </div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
+
+

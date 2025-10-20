@@ -19,7 +19,7 @@ import {
 } from "./fs-utils.js";
 import type { Config, RunMeta, FrameEntry, TabMeta } from "./types.js";
 
-// Allow overriding work directory via environment variable
+// Work directory must be explicitly set
 const WORK_DIR = process.env.RCE_WORK_DIR || process.cwd();
 const RCE_DIR = path.join(WORK_DIR, ".rce");
 const DATA_DIR = path.join(RCE_DIR, "data");

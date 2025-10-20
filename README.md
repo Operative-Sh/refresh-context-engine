@@ -56,12 +56,14 @@ npm install -g @refresh-dev/rce
       "command": "npx",
       "args": ["-y", "@refresh-dev/rce-mcp"],
       "env": {
-        "RCE_WORK_DIR": "/path/to/your/project"
+        "RCE_WORK_DIR": "/path/to/your/project"  // Required!
       }
     }
   }
 }
 ```
+
+**Note:** `RCE_WORK_DIR` is required for MCP integration to locate your RCE session.
 
 **3. Start RCE in your project:**
 ```bash

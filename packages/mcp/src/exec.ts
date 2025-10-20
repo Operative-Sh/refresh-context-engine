@@ -3,10 +3,14 @@ import path from "node:path";
 
 export async function execRce(args: string[], input?: string): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve) => {
-    // Pass current working directory as env var so RCE CLI uses it
+    // Require RCE_WORK_DIR to be explicitly set
+    if (!process.env.RCE_WORK_DIR) {
+      throw new Error('RCE_WORK_DIR environment variable must be set in MCP config');
+    }
+    
     const env = {
       ...process.env,
-      RCE_WORK_DIR: process.cwd()
+      RCE_WORK_DIR: process.env.RCE_WORK_DIR
     };
     
     const p = spawn("rce", args, { 

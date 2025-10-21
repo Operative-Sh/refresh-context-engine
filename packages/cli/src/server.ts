@@ -40,6 +40,19 @@ export async function startUIServer(
         return;
       }
       
+      if (url.pathname === "/app.js.map") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        const mapPath = path.join(__dirname, "../public/app.js.map");
+        try {
+          const sourceMap = await fs.readFile(mapPath, "utf8");
+          res.end(sourceMap);
+        } catch {
+          res.writeHead(404, { "Content-Type": "text/plain" });
+          res.end("Source map not available");
+        }
+        return;
+      }
+      
       // API endpoints
       if (url.pathname === "/api/health") {
         res.writeHead(200, { "Content-Type": "application/json" });

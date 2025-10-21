@@ -9,10 +9,17 @@
     "build",
     "bin",
     "vendor",
-    "public"
+    "public",
+    "ui/src",
+    "ui/index.html",
+    "ui/tsconfig.json"
   ],
   "scripts": {
-    "build": "tsc && node -e \"import{chmodSync}from'fs';chmodSync('bin/rce.mjs',0o755)\"",
+    "build:ui": "esbuild ui/src/main.ts --bundle --outfile=public/app.js --sourcemap --target=es2020 --format=esm && cp ui/index.html public/index.html",
+    "build:cli": "tsc && node -e \"import{chmodSync}from'fs';chmodSync('bin/rce.mjs',0o755)\"",
+    "build": "npm run build:ui && npm run build:cli",
+    "dev": "npm run build:ui -- --watch",
+    "prepublishOnly": "npm run build",
     "postinstall": "npx --yes playwright install chromium --with-deps || true"
   },
   "dependencies": {
@@ -23,6 +30,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/ws": "^8.5.0",
+    "esbuild": "^0.19.0",
     "typescript": "^5.5.0"
   }
 }

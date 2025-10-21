@@ -1,0 +1,9 @@
+# Include built files in npm package even though they're in .gitignore
+!public/app.js
+!public/app.js.map
+!public/index.html
+
+# Don't include these in the package
+ui/src/**/*.js
+ui/src/**/*.js.map
+

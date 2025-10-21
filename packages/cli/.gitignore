@@ -1,0 +1,5 @@
+# Build outputs (generated from ui/src/)
+public/app.js
+public/app.js.map
+public/index.html
+

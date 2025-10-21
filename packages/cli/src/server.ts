@@ -122,10 +122,18 @@ export async function startUIServer(
       if (url.pathname === "/api/events") {
         const eventsPath = path.join(runDir, "rrweb/events.rrweb.jsonl");
         const eventsLines = await readJsonLines(eventsPath).catch(() => []);
-        // Extract just the event data
-        const events = eventsLines.map((line: any) => line.event || line);
+        // Keep the wrapper with tabId for multi-tab support
+        // Format: { tabId: number, event: RRWebEvent }
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(events));
+        res.end(JSON.stringify(eventsLines));
+        return;
+      }
+      
+      if (url.pathname === "/api/tabs") {
+        const tabsPath = path.join(runDir, "meta/tabs.jsonl");
+        const tabs = await readJsonLines(tabsPath).catch(() => []);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(tabs));
         return;
       }
       

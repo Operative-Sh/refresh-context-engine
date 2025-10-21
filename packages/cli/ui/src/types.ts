@@ -21,6 +21,7 @@ export interface LogEntry {
 export interface WebSocketMessage {
   type: "screencast";
   data: string; // Base64 encoded image
+  tabId?: number; // Tab ID for multi-tab sessions
 }
 
 export interface RRWebEvent {

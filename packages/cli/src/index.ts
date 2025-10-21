@@ -27,6 +27,17 @@ const RCE_DIR = path.join(WORK_DIR, ".rce");
 const DATA_DIR = path.join(RCE_DIR, "data");
 const CURRENT_SYM = path.join(RCE_DIR, "current");
 
+// Global error handlers to prevent crashes
+process.on("uncaughtException", (error) => {
+  console.error("[rce] Uncaught exception:", error);
+  // Don't exit - keep recording
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[rce] Unhandled rejection at:", promise, "reason:", reason);
+  // Don't exit - keep recording
+});
+
 const DEFAULT_CONFIG: Config = {
   url: "http://localhost:3000",
   serverCmd: "npm run dev",

@@ -299,26 +299,36 @@ export async function startRecorder(
     // Don't inject rrweb immediately on about:blank
     // Wait for actual navigation via load event
     page.on("load", async () => {
-      log(`[rrweb] Load event fired for: ${page.url()}`);
-      await startRRWebRecording(page, config);
+      try {
+        log(`[rrweb] Load event fired for: ${page.url()}`);
+        await startRRWebRecording(page, config);
+      } catch (error: any) {
+        console.error(`[rrweb] Error in load handler: ${error.message}`);
+        // Don't crash - keep recording other events
+      }
     });
     
     // Debounced auto-save on auth navigations (prevents spam during OAuth redirects)
     // Save storage state on EVERY navigation (guarantees logout/login persistence)
     page.on("framenavigated", async (frame) => {
-      if (frame === page.mainFrame()) {
-        const url = frame.url();
-        
-        // Skip about:blank
-        if (url === 'about:blank') {
-          return;
+      try {
+        if (frame === page.mainFrame()) {
+          const url = frame.url();
+          
+          // Skip about:blank
+          if (url === 'about:blank') {
+            return;
+          }
+          
+          // Save immediately after navigation
+          const saved = await saveStorageState();
+          if (saved) {
+            log(`[storage] State saved after navigation`);
+          }
         }
-        
-        // Save immediately after navigation
-        const saved = await saveStorageState();
-        if (saved) {
-          log(`[storage] State saved after navigation`);
-        }
+      } catch (error: any) {
+        console.error(`[storage] Error in framenavigated handler: ${error.message}`);
+        // Don't crash - continue recording
       }
     });
     

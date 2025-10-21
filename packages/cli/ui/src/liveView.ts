@@ -1,6 +1,8 @@
 import type { LogEntry, WebSocketMessage } from "./types.js";
+import { TabManager } from "./tabManager.js";
 
 let currentView = "live";
+let tabManager: TabManager | null = null;
 
 export function setCurrentView(view: string): void {
   currentView = view;
@@ -15,14 +17,18 @@ let ws: WebSocket | null = null;
 let reconnectTimeout: number | null = null;
 
 export function initializeLiveView(): void {
-  const canvas = document.getElementById("screencast") as HTMLCanvasElement;
-  const ctx = canvas?.getContext("2d");
+  const container = document.getElementById("screencast-container");
+  const tabSelector = document.getElementById("tab-selector");
   const status = document.getElementById("status");
 
-  if (!canvas || !ctx || !status) {
+  if (!container || !tabSelector || !status) {
     console.error("Live view elements not found");
     return;
   }
+
+  // Initialize tab manager
+  tabManager = new TabManager(container, tabSelector);
+  tabManager.startPeriodicRefresh();
 
   function connect() {
     // Don't create multiple connections
@@ -66,17 +72,24 @@ export function initializeLiveView(): void {
       ws.onmessage = (e) => {
         try {
           const msg: WebSocketMessage = JSON.parse(e.data);
-          if (msg.type === "screencast") {
-            const img = new Image();
-            img.onload = () => {
-              canvas.width = img.width;
-              canvas.height = img.height;
-              ctx.drawImage(img, 0, 0);
-            };
-            img.onerror = (err) => {
-              console.error("[Canvas] Image load error:", err);
-            };
-            img.src = `data:image/jpeg;base64,${msg.data}`;
+          if (msg.type === "screencast" && tabManager) {
+            const tabId = msg.tabId ?? 0;
+            const tab = tabManager.getOrCreateTab(tabId);
+            const ctx = tab.canvas.getContext("2d");
+            
+            if (ctx) {
+              const img = new Image();
+              img.onload = () => {
+                tab.canvas.width = img.width;
+                tab.canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                tabManager!.updateTab(tabId);
+              };
+              img.onerror = (err) => {
+                console.error(`[Canvas] Image load error for tab ${tabId}:`, err);
+              };
+              img.src = `data:image/jpeg;base64,${msg.data}`;
+            }
           }
         } catch (err) {
           console.error("[WS] Error parsing message:", err);
@@ -101,6 +114,19 @@ export function initializeLiveView(): void {
       ws.close();
     }
   });
+
+  // Load tab metadata to show better tab names
+  fetch("/api/tabs")
+    .then(r => r.json())
+    .then(tabs => {
+      tabs.forEach((tab: any) => {
+        if (tabManager && tab.tabId !== undefined && tab.url) {
+          // Update tab with URL info
+          const existingTab = tabManager.getOrCreateTab(tab.tabId, tab.url);
+        }
+      });
+    })
+    .catch(err => console.error("Failed to load tab metadata:", err));
 
   // Start polling logs
   startLogPolling();

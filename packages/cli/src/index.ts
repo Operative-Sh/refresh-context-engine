@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import http from "node:http";
 import { spawn } from "node:child_process";
 import { parseArgs } from "./args.js";
 import { startRecorder } from "./recorder.js";
@@ -70,8 +71,34 @@ async function cmdDev(flags: any): Promise<void> {
     if (currentExists) {
       console.error("[rce] Stopping existing instance...");
       await cmdStop();
-      // Give it a moment to fully shut down
-      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Wait for port to be released (try up to 5 seconds)
+      const port = flags.port ? Number(flags.port) : 43210;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (attempts < maxAttempts) {
+        try {
+          // Try to create a server on the port to check if it's free
+          const testServer = http.createServer();
+          await new Promise<void>((resolve, reject) => {
+            testServer.once('error', reject);
+            testServer.listen(port, () => {
+              testServer.close(() => resolve());
+            });
+          });
+          console.error("[rce] Port released, ready to start");
+          break;
+        } catch (e: any) {
+          if (e.code === 'EADDRINUSE') {
+            attempts++;
+            console.error(`[rce] Waiting for port ${port} to be released... (${attempts}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } else {
+            break; // Other error, just continue
+          }
+        }
+      }
     }
   } catch (err) {
     // Ignore errors - if stop fails, we'll try to start anyway
@@ -120,6 +147,12 @@ async function cmdDev(flags: any): Promise<void> {
   await fs.writeFile(
     path.join(runDir, "meta/recorder.meta.json"),
     JSON.stringify(meta, null, 2)
+  );
+  
+  // Save main process PID for stopping
+  await fs.writeFile(
+    path.join(runDir, "main.pid"),
+    String(process.pid)
   );
   
   // Symlink current
@@ -206,11 +239,25 @@ async function cmdStop(): Promise<void> {
     const runDir = await fs.readlink(CURRENT_SYM);
     const resolvedRunDir = path.resolve(path.dirname(CURRENT_SYM), runDir);
     
+    // Kill main RCE process (UI server, etc.)
+    const mainPidPath = path.join(resolvedRunDir, "main.pid");
+    if (await fileExists(mainPidPath)) {
+      const pid = Number(await fs.readFile(mainPidPath, "utf8"));
+      // Don't kill ourselves if we're the main process
+      if (pid !== process.pid) {
+        try { process.kill(pid, "SIGTERM"); } catch {}
+        await new Promise(r => setTimeout(r, 100));
+        try { process.kill(pid, "SIGKILL"); } catch {}
+      }
+      await fs.rm(mainPidPath, { force: true });
+    }
+    
     // Kill browser
     const browserPidPath = path.join(resolvedRunDir, "browser.pid");
     if (await fileExists(browserPidPath)) {
       const pid = Number(await fs.readFile(browserPidPath, "utf8"));
-      try { process.kill(pid); } catch {}
+      try { process.kill(pid, "SIGTERM"); } catch {}
+      await new Promise(r => setTimeout(r, 100));
       try { process.kill(pid, "SIGKILL"); } catch {}
       await fs.rm(browserPidPath, { force: true });
     }
@@ -219,7 +266,8 @@ async function cmdStop(): Promise<void> {
     const serverPidPath = path.join(resolvedRunDir, "server.pid");
     if (await fileExists(serverPidPath)) {
       const pid = Number(await fs.readFile(serverPidPath, "utf8"));
-      try { process.kill(pid); } catch {}
+      try { process.kill(pid, "SIGTERM"); } catch {}
+      await new Promise(r => setTimeout(r, 100));
       try { process.kill(pid, "SIGKILL"); } catch {}
       await fs.rm(serverPidPath, { force: true });
     }

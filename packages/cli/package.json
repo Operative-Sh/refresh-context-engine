@@ -1,6 +1,6 @@
 {
   "name": "@refresh-dev/rce",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "bin": {
     "rce": "bin/rce.mjs"

@@ -62,6 +62,10 @@ export function loadReplayEvents(): void {
       try {
         // Check if rrwebPlayer (Svelte component) is available
         if (typeof rrwebPlayer !== "undefined") {
+          // Get container dimensions
+          const containerWidth = wrapperEl.clientWidth;
+          const containerHeight = wrapperEl.clientHeight;
+          
           // Use rrweb-player (Svelte component with built-in UI)
           rrwebPlayerInstance = new rrwebPlayer({
             target: wrapperEl,
@@ -71,10 +75,12 @@ export function loadReplayEvents(): void {
               showController: true,
               speedOption: [0.5, 1, 2, 4, 8],
               skipInactive: false,
-              width: 1280,
-              height: 800,
+              width: containerWidth || 1280,
+              height: containerHeight || 800,
             },
           });
+          
+          console.log(`rrweb-player initialized with dimensions: ${containerWidth}x${containerHeight}`);
         } else {
           // Fallback: use basic rrweb.Replayer
           rrwebPlayerInstance = new rrweb.Replayer(events, {

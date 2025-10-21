@@ -64,6 +64,19 @@ function jsonOutput(data: any, flags: any): void {
 async function cmdDev(flags: any): Promise<void> {
   const config = await loadConfig();
   
+  // Auto-stop any existing RCE instance to prevent port conflicts
+  try {
+    const currentExists = await fileExists(CURRENT_SYM);
+    if (currentExists) {
+      console.error("[rce] Stopping existing instance...");
+      await cmdStop();
+      // Give it a moment to fully shut down
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  } catch (err) {
+    // Ignore errors - if stop fails, we'll try to start anyway
+  }
+  
   // Override config with CLI flags
   if (flags.url) config.url = flags.url;
   if (flags.serverCmd) config.serverCmd = flags.serverCmd;

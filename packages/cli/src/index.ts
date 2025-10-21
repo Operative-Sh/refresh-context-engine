@@ -15,7 +15,8 @@ import {
   writeJsonLines, 
   readJsonLines, 
   symlinkForce, 
-  fileExists 
+  fileExists,
+  binarySearchFrameByTimestamp
 } from "./fs-utils.js";
 import type { Config, RunMeta, FrameEntry, TabMeta } from "./types.js";
 
@@ -281,6 +282,24 @@ async function cmdShot(flags: any): Promise<void> {
           console.error(`[rce] Auto-detected tabId ${autoDetectedTabId} from frame ${targetIndex}`);
         }
       }
+    } else if (flags.ts !== undefined) {
+      // Direct timestamp support with binary search (rounds down)
+      const targetTs = Number(flags.ts);
+      const framesPath = path.join(resolvedRunDir, "rrweb/frames.jsonl");
+      const frames = await readJsonLines<FrameEntry>(framesPath);
+      const filteredFrames = tabId !== undefined 
+        ? frames.filter(f => f.tabId === tabId)
+        : frames;
+      
+      const frame = binarySearchFrameByTimestamp(filteredFrames, targetTs);
+      if (!frame) {
+        console.error(`[rce] No frame found at or before timestamp ${targetTs}`);
+        process.exit(1);
+      }
+      
+      targetIndex = frame.i;
+      autoDetectedTabId = frame.tabId;
+      console.error(`[rce] Found frame ${targetIndex} at timestamp ${frame.ts} (closest to ${targetTs})`);
     } else if (flags.at) {
       const framesPath = path.join(resolvedRunDir, "rrweb/frames.jsonl");
       const frames = await readJsonLines<FrameEntry>(framesPath);
@@ -323,7 +342,7 @@ async function cmdShot(flags: any): Promise<void> {
         targetIndex = candidates[candidates.length - 1].i;
       }
     } else {
-      console.error('[rce] Usage: rce shot (--index N | --at "<ISO|+ms|ts#k>") [--out path] [--tab N]');
+      console.error('[rce] Usage: rce shot (--index N | --ts TIMESTAMP | --at "<ISO|+ms|ts#k>") [--out path] [--tab N]');
       process.exit(1);
     }
     
@@ -391,15 +410,47 @@ async function cmdDiff(flags: any): Promise<void> {
     const runDir = await fs.readlink(CURRENT_SYM);
     const resolvedRunDir = path.resolve(path.dirname(CURRENT_SYM), runDir);
     
-    if (flags.from === undefined || flags.to === undefined) {
-      console.error('[rce] Usage: rce diff --from N --to M [--tab N] [--format html|json]');
+    // Support both index and timestamp modes
+    const hasIndexMode = flags.from !== undefined && flags.to !== undefined;
+    const hasTimestampMode = flags.fromTs !== undefined && flags.toTs !== undefined;
+    
+    if (!hasIndexMode && !hasTimestampMode) {
+      console.error('[rce] Usage: rce diff (--from N --to M) OR (--from-ts TS --to-ts TS) [--tab N] [--format html|json]');
       process.exit(1);
     }
     
-    const fromIndex = Number(flags.from);
-    const toIndex = Number(flags.to);
+    let fromIndex: number;
+    let toIndex: number;
     const format = flags.format ?? "html";
     const tabId = flags.tab !== undefined ? Number(flags.tab) : undefined;
+    
+    if (hasTimestampMode) {
+      // Timestamp mode: use binary search
+      const fromTs = Number(flags.fromTs);
+      const toTs = Number(flags.toTs);
+      
+      const framesPath = path.join(resolvedRunDir, "rrweb/frames.jsonl");
+      const frames = await readJsonLines<FrameEntry>(framesPath);
+      const filteredFrames = tabId !== undefined 
+        ? frames.filter(f => f.tabId === tabId)
+        : frames;
+      
+      const fromFrame = binarySearchFrameByTimestamp(filteredFrames, fromTs);
+      const toFrame = binarySearchFrameByTimestamp(filteredFrames, toTs);
+      
+      if (!fromFrame || !toFrame) {
+        console.error(`[rce] Could not find frames for timestamps ${fromTs} to ${toTs}`);
+        process.exit(1);
+      }
+      
+      fromIndex = fromFrame.i;
+      toIndex = toFrame.i;
+      console.error(`[rce] From: frame ${fromIndex} at ${fromFrame.ts}, To: frame ${toIndex} at ${toFrame.ts}`);
+    } else {
+      // Index mode
+      fromIndex = Number(flags.from);
+      toIndex = Number(flags.to);
+    }
     
     // Load events
     const eventsPath = path.join(resolvedRunDir, "rrweb/events.rrweb.jsonl");

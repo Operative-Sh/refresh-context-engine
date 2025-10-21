@@ -16,12 +16,18 @@ export async function replayAndScreenshot(
   
   console.error(`[replay] Replaying ${subset.length} events to index ${targetIndex}`);
   
+  // Safely serialize events to avoid script injection issues
+  const safeJsonString = JSON.stringify(subset)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
+  
   const html = `
 <!doctype html>
 <meta charset="utf-8"/>
 <style>html,body,#root{margin:0;height:100%;overflow:hidden}</style>
 <div id="root"></div>
-<script>window.__EVENTS__ = ${JSON.stringify(subset)};</script>
+<script>window.__EVENTS__ = ${safeJsonString};</script>
 <script src="https://unpkg.com/rrweb@latest/dist/rrweb.min.js"></script>
 <script src="https://unpkg.com/rrweb@latest/dist/rrweb-replay.min.js"></script>
 <script>
@@ -86,12 +92,18 @@ export async function replayToHTML(
   
   const subset = events.slice(0, targetIndex + 1);
   
+  // Safely serialize events to avoid script injection issues
+  const safeJsonString = JSON.stringify(subset)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
+  
   const html = `
 <!doctype html>
 <meta charset="utf-8"/>
 <style>html,body,#root{margin:0;height:100%}</style>
 <div id="root"></div>
-<script>window.__EVENTS__ = ${JSON.stringify(subset)};</script>
+<script>window.__EVENTS__ = ${safeJsonString};</script>
 <script src="https://unpkg.com/rrweb@latest/dist/rrweb.min.js"></script>
 <script src="https://unpkg.com/rrweb@latest/dist/rrweb-replay.min.js"></script>
 <script>

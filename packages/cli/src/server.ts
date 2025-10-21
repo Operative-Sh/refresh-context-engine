@@ -106,6 +106,16 @@ export async function startUIServer(
         return;
       }
       
+      if (url.pathname === "/api/events") {
+        const eventsPath = path.join(runDir, "rrweb/events.rrweb.jsonl");
+        const eventsLines = await readJsonLines(eventsPath).catch(() => []);
+        // Extract just the event data
+        const events = eventsLines.map((line: any) => line.event || line);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(events));
+        return;
+      }
+      
       // 404
       res.writeHead(404, { "Content-Type": "text/plain" });
       res.end("Not found");
@@ -154,21 +164,27 @@ function generateDefaultHTML(): string {
 <head>
   <meta charset="utf-8"/>
   <title>RCE Live View</title>
+  <link rel="stylesheet" href="https://unpkg.com/rrweb-player@latest/dist/style.css"/>
   <style>
+    * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui; display: flex; flex-direction: column; height: 100vh; background: #1a1a1a; color: #e0e0e0; }
-    #toolbar { padding: 1rem; border-bottom: 1px solid #333; background: #2a2a2a; }
-    #toolbar h2 { margin: 0 0 0.5rem 0; color: #fff; }
+    #toolbar { padding: 1rem; border-bottom: 1px solid #333; background: #2a2a2a; display: flex; align-items: center; justify-content: space-between; }
+    #toolbar h2 { margin: 0; color: #fff; font-size: 20px; }
     #status { color: #4CAF50; font-size: 14px; }
+    .tabs { display: flex; gap: 0.5rem; }
+    .tab { padding: 0.5rem 1rem; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; cursor: pointer; color: #aaa; transition: all 0.2s; }
+    .tab:hover { background: #333; color: #fff; }
+    .tab.active { background: #4CAF50; color: #fff; border-color: #4CAF50; }
     #main { display: flex; flex: 1; overflow: hidden; }
-    #left { flex: 2; display: flex; flex-direction: column; border-right: 1px solid #333; }
+    .view-panel { flex: 1; display: flex; flex-direction: column; }
+    .view-panel.hidden { display: none; }
+    
+    /* Live View */
+    #live-view { display: flex; }
+    #live-left { flex: 2; display: flex; flex-direction: column; border-right: 1px solid #333; }
     #screencast-container { flex: 1; background: #000; position: relative; overflow: auto; display: flex; align-items: center; justify-content: center; }
     #screencast { max-width: 100%; max-height: 100%; border: 1px solid #333; }
-    #rrweb-container { flex: 1; border-top: 1px solid #333; padding: 1rem; overflow: auto; background: #222; }
-    #rrweb-container h3 { margin: 0 0 1rem 0; color: #fff; font-size: 16px; }
-    #frames-list { font-family: monospace; font-size: 12px; }
-    .frame-item { padding: 4px 8px; margin: 2px 0; background: #2a2a2a; border-radius: 3px; cursor: pointer; }
-    .frame-item:hover { background: #3a3a3a; }
-    #right { flex: 1; display: flex; flex-direction: column; background: #1a1a1a; }
+    #live-right { flex: 1; display: flex; flex-direction: column; background: #1a1a1a; }
     #logs { flex: 1; overflow: auto; padding: 1rem; font-family: monospace; font-size: 12px; }
     #logs h3 { margin: 0 0 1rem 0; color: #fff; font-size: 16px; }
     .log-entry { padding: 4px 8px; margin: 2px 0; border-left: 3px solid #666; background: #222; border-radius: 2px; }
@@ -176,30 +192,64 @@ function generateDefaultHTML(): string {
     .log-network { border-left-color: #4CAF50; }
     .log-error { border-left-color: #f44336; background: #2a1a1a; }
     .log-time { color: #888; font-size: 10px; }
+    
+    /* Replay View */
+    #replay-view { display: flex; flex-direction: column; padding: 1rem; }
+    #replay-header { margin-bottom: 1rem; }
+    #replay-header h3 { margin: 0 0 0.5rem 0; color: #fff; }
+    #replay-controls { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    #replay-controls button { padding: 0.5rem 1rem; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px; cursor: pointer; }
+    #replay-controls button:hover { background: #444; }
+    #replay-controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #replay-container { flex: 1; background: #000; border: 1px solid #333; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    #replay-status { padding: 1rem; color: #888; text-align: center; }
+    
+    /* rrweb-player styling overrides */
+    .rr-player { width: 100% !important; height: 100% !important; }
+    .rr-player__frame { background: #fff !important; }
   </style>
 </head>
 <body>
   <div id="toolbar">
-    <h2>RCE Live View</h2>
+    <h2>RCE Recorder</h2>
+    <div class="tabs">
+      <div class="tab active" data-view="live">Live View</div>
+      <div class="tab" data-view="replay">Replay Recording</div>
+    </div>
     <span id="status">Connecting...</span>
   </div>
   <div id="main">
-    <div id="left">
-      <div id="screencast-container">
-        <canvas id="screencast"></canvas>
+    <div id="live-view" class="view-panel">
+      <div id="live-left">
+        <div id="screencast-container">
+          <canvas id="screencast"></canvas>
+        </div>
       </div>
-      <div id="rrweb-container">
-        <h3>rrweb Timeline</h3>
-        <div id="frames-list">Loading frames...</div>
+      <div id="live-right">
+        <div id="logs">
+          <h3>Console & Network Events</h3>
+          <div id="log-entries">Loading logs...</div>
+        </div>
       </div>
     </div>
-    <div id="right">
-      <div id="logs">
-        <h3>Console & Network Events</h3>
-        <div id="log-entries">Loading logs...</div>
+    <div id="replay-view" class="view-panel hidden">
+      <div id="replay-header">
+        <h3>Session Replay</h3>
+        <div id="replay-controls">
+          <button id="replay-refresh">Refresh Events</button>
+          <button id="replay-play" disabled>Play</button>
+          <button id="replay-pause" disabled>Pause</button>
+          <button id="replay-restart" disabled>Restart</button>
+          <span id="replay-info" style="color: #888; margin-left: 1rem;"></span>
+        </div>
+      </div>
+      <div id="replay-container">
+        <div id="replay-status">Loading events...</div>
       </div>
     </div>
   </div>
+  <script src="https://unpkg.com/rrweb@latest/dist/rrweb.min.js"></script>
+  <script src="https://unpkg.com/rrweb-player@latest/dist/index.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>`;
@@ -207,6 +257,32 @@ function generateDefaultHTML(): string {
 
 function generateDefaultJS(): string {
   return `// RCE Live View Client
+let currentView = "live";
+let rrwebPlayer = null;
+
+// Tab switching
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    const view = tab.dataset.view;
+    currentView = view;
+    
+    // Update tabs
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    
+    // Update views
+    document.querySelectorAll(".view-panel").forEach(panel => {
+      panel.classList.toggle("hidden", !panel.id.startsWith(view));
+    });
+    
+    // Load replay if switching to it
+    if (view === "replay" && !rrwebPlayer) {
+      loadReplayEvents();
+    }
+  });
+});
+
+// Live View - WebSocket
 const ws = new WebSocket(\`ws://\${location.host}/api/live\`);
 const canvas = document.getElementById("screencast");
 const ctx = canvas.getContext("2d");
@@ -234,23 +310,6 @@ ws.onmessage = (e) => {
     img.src = \`data:image/jpeg;base64,\${msg.data}\`;
   }
 };
-
-// Fetch and display frames
-fetch("/api/frames")
-  .then(r => r.json())
-  .then(frames => {
-    const list = document.getElementById("frames-list");
-    list.innerHTML = "";
-    frames.forEach(f => {
-      const div = document.createElement("div");
-      div.className = "frame-item";
-      div.textContent = \`\${f.ts}#\${f.k} (i=\${f.i})\${f.tabId !== undefined ? \` tab=\${f.tabId}\` : ""}\`;
-      list.appendChild(div);
-    });
-  })
-  .catch(err => {
-    document.getElementById("frames-list").textContent = "Error loading frames: " + err.message;
-  });
 
 // Poll logs
 function updateLogs() {
@@ -285,6 +344,87 @@ function updateLogs() {
 
 updateLogs();
 setInterval(updateLogs, 2000);
+
+// Replay View - rrweb Player
+function loadReplayEvents() {
+  const statusEl = document.getElementById("replay-status");
+  const containerEl = document.getElementById("replay-container");
+  const infoEl = document.getElementById("replay-info");
+  
+  statusEl.textContent = "Loading events...";
+  
+  fetch("/api/events")
+    .then(r => r.json())
+    .then(events => {
+      if (!events || events.length === 0) {
+        statusEl.textContent = "No events recorded yet. Start using the app to record interactions.";
+        return;
+      }
+      
+      // Clear status message
+      containerEl.innerHTML = "";
+      
+      // Create rrweb player
+      try {
+        rrwebPlayer = new rrwebPlayer({
+          target: containerEl,
+          props: {
+            events,
+            width: 1280,
+            height: 800,
+            autoPlay: false,
+            showController: true,
+            speedOption: [1, 2, 4, 8],
+            UNSAFE_replayCanvas: true
+          }
+        });
+        
+        // Enable controls
+        document.getElementById("replay-play").disabled = false;
+        document.getElementById("replay-pause").disabled = false;
+        document.getElementById("replay-restart").disabled = false;
+        
+        // Update info
+        infoEl.textContent = \`\${events.length} events loaded\`;
+        
+        console.log("rrweb player initialized with", events.length, "events");
+      } catch (error) {
+        console.error("Error creating rrweb player:", error);
+        containerEl.innerHTML = \`<div id="replay-status">Error: \${error.message}</div>\`;
+      }
+    })
+    .catch(err => {
+      statusEl.textContent = "Error loading events: " + err.message;
+      console.error("Failed to load events:", err);
+    });
+}
+
+// Replay controls
+document.getElementById("replay-refresh")?.addEventListener("click", () => {
+  if (rrwebPlayer) {
+    rrwebPlayer.$destroy();
+    rrwebPlayer = null;
+  }
+  loadReplayEvents();
+});
+
+document.getElementById("replay-play")?.addEventListener("click", () => {
+  if (rrwebPlayer) {
+    rrwebPlayer.play();
+  }
+});
+
+document.getElementById("replay-pause")?.addEventListener("click", () => {
+  if (rrwebPlayer) {
+    rrwebPlayer.pause();
+  }
+});
+
+document.getElementById("replay-restart")?.addEventListener("click", () => {
+  if (rrwebPlayer) {
+    rrwebPlayer.goto(0);
+  }
+});
 `;
 }
 

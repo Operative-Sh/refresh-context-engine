@@ -46,6 +46,7 @@ const toolSchemas = {
   "rce_shot": z.object({
     at: z.string().optional().describe("Timestamp (ISO, +ms, or ts#k)"),
     index: z.number().int().optional().describe("Event index"),
+    ts: z.number().optional().describe("Unix timestamp in milliseconds (rounds down to nearest frame)"),
     tabId: z.number().int().optional().describe("Tab ID for multi-tab recordings"),
   }),
   "rce_screenshot-latest": z.object({}).strict(),
@@ -167,6 +168,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             at: { type: "string", description: "Timestamp (ISO, +ms, or ts#k)" },
             index: { type: "number", description: "Event index" },
+            ts: { type: "number", description: "Unix timestamp in milliseconds (rounds down)" },
             tabId: { type: "number", description: "Tab ID" },
           },
         },
@@ -357,6 +359,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const cmdArgs = ["shot"];
       if (payload.at) cmdArgs.push("--at", payload.at);
       if (payload.index !== undefined) cmdArgs.push("--index", String(payload.index));
+      if (payload.ts !== undefined) cmdArgs.push("--ts", String(payload.ts));
       if (payload.tabId !== undefined) cmdArgs.push("--tab", String(payload.tabId));
 
       const res = await execJson<{ path: string }>(cmdArgs);

@@ -70,6 +70,8 @@ async function startRRWebRecording(page: Page, config: Config): Promise<void> {
         },
         recordCanvas: true,
         collectFonts: true,
+        recordCrossOriginIframes: true, // Record iframe content
+        inlineStylesheet: true, // Capture inline styles from iframes
         sampling: samplingConfig,
         checkoutEveryNms: 10 * 1000 // Take full snapshot every 10 seconds as backup
       });
